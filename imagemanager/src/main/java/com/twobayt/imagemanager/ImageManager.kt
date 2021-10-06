@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,6 +26,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class ImageManager private constructor(builder: Builder)  {
+
+    private val TAG: String =  "ImageManager"
     private var applicationId:String
 
     private var galleryLauncher: ActivityResultLauncher<Intent>? = null
@@ -95,7 +98,6 @@ class ImageManager private constructor(builder: Builder)  {
     }
 
 
-
     private fun handleBitmap(openCropProvider: ICropProvider?, bitmap: Bitmap?, callback: (bitmap: Bitmap?) -> Unit) {
         if(isCrop){
             val cropFragment = CropFragment.newInstance(bitmap)
@@ -105,6 +107,9 @@ class ImageManager private constructor(builder: Builder)  {
                 }
             })
             openCropProvider?.openCrop(cropFragment)
+            if(openCropProvider==null){
+                Log.e(TAG, "Crop Provider Not Found")
+            }
         }else{
             callback(bitmap)
         }
