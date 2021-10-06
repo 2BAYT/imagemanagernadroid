@@ -5,11 +5,13 @@ plugins {
 }
 
 def getVersionName = { ->
-    return "1.0.0" // Replace with version Name
+    return "1.0.0"
 }
-def getArtificatId = { ->
-    return "core" // Replace with library name ID
-}
+def getArtificatId = { -> return "core"}
+
+def getReleaseOutputName = { -> return "imagemanager" }
+
+
 
 android {
     compileSdk 30
@@ -67,7 +69,7 @@ publishing {
             groupId 'com.twobayt.imagemanager'
             artifactId getArtificatId()
             version getVersionName()
-            artifact("$buildDir/outputs/aar/${getArtificatId()}-release.aar")
+            artifact("$buildDir/outputs/aar/${getReleaseOutputName()}-release.aar")
         }
     }
 }
