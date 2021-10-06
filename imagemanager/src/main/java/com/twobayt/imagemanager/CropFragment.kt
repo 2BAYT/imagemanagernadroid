@@ -34,7 +34,7 @@ class CropFragment : Fragment() {
     private fun setListeners() {
         okTV.setOnClickListener { _: View? ->
             if (listener != null) {
-                listener!!.onCropped(cropIV!!.croppedImage)
+                listener!!.onCropped(cropIV.croppedImage)
                 activity?.let {
                     if(!it.isFinishing){
                         it.onBackPressed()
@@ -51,8 +51,8 @@ class CropFragment : Fragment() {
         }
 
 
-        rotateRightIV.setOnClickListener { cropIV!!.rotateImage(90) }
-        rotateLeftIV.setOnClickListener { cropIV!!.rotateImage(-90) }
+        rotateRightIV.setOnClickListener { cropIV.rotateImage(90) }
+        rotateLeftIV.setOnClickListener { cropIV.rotateImage(-90) }
     }
 
     fun setOnCropDoneListener(listener: CropDoneListener?) {
