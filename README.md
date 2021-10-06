@@ -1,5 +1,18 @@
-# ImageManagerExample
+# ImageManager Library
  
+
+## Add Your Repository Sources
+```
+maven {
+    name = "GitHubPackages"
+    url = uri("https://maven.pkg.github.com/2BAYT/imagemanagernadroid")
+    credentials {
+        username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_USER")
+        password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
+    }
+}
+```
+
 ## Add Dependency
 `com.twobayt.imagemanager:core:1.0.0`
 
