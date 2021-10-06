@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="crop_ok">Tamam</string>
-    <string name="crop_cancel">Vazgeç</string>
+    <string name="open_gallery">Open Gallery</string>
+    <string name="open_camera">Open Camera</string>
+    <string name="app_name">Image Manager Example</string>
 </resources>

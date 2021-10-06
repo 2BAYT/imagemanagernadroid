@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="crop_black">#000000</color>
-    <color name="crop_ok_text">#FFC107</color>
-    <color name="crop_cancel_text">#3F51B5</color>
+    <color name="image_bg">#E8E8E8</color>
 </resources>
