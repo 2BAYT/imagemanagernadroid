@@ -14,7 +14,7 @@ maven {
 ```
 
 ## Add Dependency
-`com.twobayt.imagemanager:core:1.0.0`
+`implementation 'com.twobayt.imagemanager:core:1.0.0'`
 
 ## Crop feature
 `implementation 'com.edmodo:cropper:1.0.1'`
