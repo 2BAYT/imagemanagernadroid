@@ -1,20 +1,32 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 buildscript {
+    ext.kotlin_version = '1.5.30'
     repositories {
         google()
         mavenCentral()
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/2BAYT/imagemanagerandroid")
-            credentials {
-                username = System.getenv("GITHUB_USER") ?: githubProperties['gpr.usr']
-                password = System.getenv("GITHUB_PERSONAL_ACCESS_TOKEN") ?: githubProperties['gpr.key']
-            }
-        }
+        maven { url "https://kotlin.bintray.com/kotlinx" }
+
     }
     dependencies {
         classpath "com.android.tools.build:gradle:7.0.2"
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.5.31"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "org.jetbrains.kotlin:kotlin-serialization:$kotlin_version"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        jcenter()
+        maven { url "https://jitpack.io" }
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/2BAYT/imagemanagernadroid")
+            credentials {
+                username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_USER")
+                password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
+            }
+        }
     }
 }
 

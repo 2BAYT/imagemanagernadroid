@@ -5,7 +5,6 @@ plugins {
 
 android {
     compileSdk 30
-
     defaultConfig {
         applicationId "com.twobayt.imagemanagerexample"
         minSdk 21
@@ -29,6 +28,7 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
+
 }
 
 dependencies {
@@ -42,6 +42,7 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
 
     implementation 'com.twobayt.library:imagemanager:0.0.1'
+    implementation 'com.edmodo:cropper:1.0.1'
     //Module Projects
     //implementation project(':imagemanager')
 

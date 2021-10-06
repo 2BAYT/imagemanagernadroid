@@ -5,10 +5,10 @@ plugins {
 }
 
 def getVersionName = { ->
-    return "0.0.1" // Replace with version Name
+    return "1.0.0" // Replace with version Name
 }
 def getArtificatId = { ->
-    return "imagemanager" // Replace with library name ID
+    return "core" // Replace with library name ID
 }
 
 android {
@@ -64,7 +64,7 @@ publishing {
     }
     publications {
         bar(MavenPublication) {
-            groupId 'com.twobayt.library'
+            groupId 'com.twobayt.imagemanager'
             artifactId getArtificatId()
             version getVersionName()
             artifact("$buildDir/outputs/aar/${getArtificatId()}-release.aar")
