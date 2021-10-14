@@ -32,8 +32,21 @@ class HomeFragment : Fragment(), ICropProvider{
         imageManager.prepareInstance(savedInstanceState)
         prepareView(v)
         setListeners()
-        checkWriteStoragePermission();
+        checkWriteStoragePermission()
         return v
+    }
+
+    private fun buildImageManager() {
+        imageManager = ImageManager.Builder(context)
+            .debugLogEnabled()
+            .targetWidth(1500)
+            .targetHeight(1278)
+            .crop(true)
+            .sampleSize(SampleSize.BIG)
+            .build()
+
+        imageManager.registerCameraLauncher(requireActivity(),this, this){ onImageSelected(it) }
+        imageManager.registerGalleryLauncher(requireActivity(),this, this){ onImageSelected(it) }
     }
 
     override fun openCrop(fragment: CropFragment) {
@@ -44,7 +57,7 @@ class HomeFragment : Fragment(), ICropProvider{
             ?.commit()
     }
 
-    fun checkWriteStoragePermission(){
+    private fun checkWriteStoragePermission(){
         val hasWriteContactsPermission = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE)
         if (hasWriteContactsPermission != PackageManager.PERMISSION_GRANTED) {
             permissionsResultCallback.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -55,17 +68,6 @@ class HomeFragment : Fragment(), ICropProvider{
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         imageManager.onSaveInstanceState(outState)
-    }
-
-    private fun buildImageManager() {
-        imageManager = ImageManager.Builder(context)
-            .crop(true)
-            .sampleSize(SampleSize.BIG)
-            .build()
-
-        imageManager.registerCameraLauncher(requireActivity(),this, this){ onImageSelected(it) }
-        imageManager.registerGalleryLauncher(requireActivity(),this, this){ onImageSelected(it) }
-
     }
 
     private fun onImageSelected(bitmap: Bitmap?) {

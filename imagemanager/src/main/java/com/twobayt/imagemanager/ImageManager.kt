@@ -6,6 +6,7 @@ import android.content.Intent
 import android.database.Cursor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -24,10 +25,11 @@ import java.lang.Exception
 import java.lang.ref.WeakReference
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.roundToInt
 
 class ImageManager private constructor(builder: Builder)  {
 
-    private val TAG: String =  "ImageManager"
+    private val tag: String =  "ImageManager"
     private var applicationId:String
 
     private var galleryLauncher: ActivityResultLauncher<Intent>? = null
@@ -39,23 +41,30 @@ class ImageManager private constructor(builder: Builder)  {
     private var contextWeakReference: WeakReference<Context>? = null
     private var isCrop = true
     private var sampleSize = SampleSize.NORMAL
+    private var targetWidth = Int.MAX_VALUE
+    private var targetHeight = Int.MAX_VALUE
+    private var debugLogEnabled = false
 
     private val galleryIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
 
-
     init {
+        this.debugLogEnabled = builder.debugLogEnabled
         this.isCrop = builder.isCrop
+        this.targetWidth = builder.targetWidth
+        this.targetHeight = builder.targetHeight
         this.contextWeakReference = WeakReference(builder.context)
         this.sampleSize = builder.sampleSize
         this.applicationId = builder.context!!.packageName
     }
 
-    data class Builder(var context: Context? = null, var isCrop: Boolean = true, var sampleSize: SampleSize = SampleSize.NORMAL)
+    data class Builder(var context: Context? = null, var isCrop: Boolean = true, var sampleSize: SampleSize = SampleSize.NORMAL, var targetWidth: Int = Int.MAX_VALUE, var targetHeight: Int = Int.MAX_VALUE, var debugLogEnabled:Boolean = false)
     {
         // builder code
-
+        fun debugLogEnabled() = apply { this.debugLogEnabled = true }
         fun crop(isCrop: Boolean) = apply { this.isCrop = isCrop }
         fun sampleSize(sampleSize: SampleSize) = apply { this.sampleSize = sampleSize }
+        fun targetWidth(targetWidth: Int) = apply { this.targetWidth = targetWidth }
+        fun targetHeight(targetHeight: Int) = apply { this.targetHeight = targetHeight }
         fun build() = ImageManager(this)
     }
 
@@ -77,9 +86,7 @@ class ImageManager private constructor(builder: Builder)  {
     }
 
     fun registerCameraLauncher(activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?, callback: (bitmap: Bitmap?) -> Unit){
-        this.cameraLauncher = fragment.registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { result: ActivityResult ->
+        this.cameraLauncher = fragment.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
             if (result.resultCode == Activity.RESULT_OK) {
                 val resultBitmap: Bitmap? = getBitmapFromCurrentPath()
                 handleBitmap(openCropProvider, resultBitmap, callback)
@@ -97,10 +104,43 @@ class ImageManager private constructor(builder: Builder)  {
         }
     }
 
+    private fun calculateAccordingToTargets(width: Float, height:Float): Array<Float> {
+        val widthRatio:Float = width / targetWidth.toFloat()
+        val heightRatio:Float = height / targetHeight.toFloat()
+        val newWidth:Float
+        val newHeight:Float
+        if(heightRatio > widthRatio){
+            // resize according to height ratio
+             newWidth = (width/heightRatio)
+             newHeight = (height/heightRatio)
+        }else{
+            // resize according to width ratio
+             newWidth = (width/widthRatio)
+             newHeight = (height/widthRatio)
+        }
+
+        if(heightRatio<1 && widthRatio<1){ // must not resize
+            return arrayOf(width, height) // return same values
+        }
+
+        return arrayOf(newWidth, newHeight)
+    }
 
     private fun handleBitmap(openCropProvider: ICropProvider?, bitmap: Bitmap?, callback: (bitmap: Bitmap?) -> Unit) {
+        bitmap ?: return
+        var resultBitmap:Bitmap? = bitmap
+        if(debugLogEnabled){ Log.d(tag, "selected bitmap width = "+bitmap.width+" height = "+bitmap.height) }
+
+        val dimens = calculateAccordingToTargets(bitmap.width.toFloat(), bitmap.height.toFloat()) // For height
+        val newDimens = calculateAccordingToTargets(width = dimens[0], height = dimens[1]) // for width
+
+        if(bitmap.width!=newDimens[0].toInt() || bitmap.height!=newDimens[1].toInt()){ // when dimens changed resize
+            resultBitmap = getResizedBitmap(bitmap, newWidth = newDimens[0].toInt(), newHeight = newDimens[1].toInt())
+        }
+        if(debugLogEnabled){ Log.d(tag, "resized bitmap width = "+newDimens[0].toInt()+" height = "+newDimens[1].toInt()) }
+
         if(isCrop){
-            val cropFragment = CropFragment.newInstance(bitmap)
+            val cropFragment = CropFragment.newInstance(resultBitmap)
             cropFragment.setOnCropDoneListener(object : CropFragment.CropDoneListener{
                 override fun onCropped(bitmap: Bitmap?) {
                     callback(bitmap)
@@ -108,10 +148,10 @@ class ImageManager private constructor(builder: Builder)  {
             })
             openCropProvider?.openCrop(cropFragment)
             if(openCropProvider==null){
-                Log.e(TAG, "Crop Provider Not Found")
+                Log.e(tag, "Crop Provider Not Found")
             }
         }else{
-            callback(bitmap)
+            callback(resultBitmap)
         }
     }
 
@@ -119,13 +159,8 @@ class ImageManager private constructor(builder: Builder)  {
     fun createImageFile(): File {
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
         val imageFileName = "JPEG_" + timeStamp + "_"
-        val storageDir =
-            contextWeakReference?.get()?.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-        val image = File.createTempFile(
-            imageFileName,  /* prefix */
-            ".jpg",  /* suffix */
-            storageDir /* directory */
-        )
+        val storageDir = contextWeakReference?.get()?.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+        val image = File.createTempFile(imageFileName,  /* prefix */".jpg",  /* suffix */storageDir /* directory */)
         // Save a file: path for use with ACTION_VIEW intents
         mCurrentPhotoPath = image.absolutePath
         return image
@@ -149,11 +184,7 @@ class ImageManager private constructor(builder: Builder)  {
             if (photoFile != null) {
                 takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(photoFile))
                 if (Build.VERSION_CODES.N <= Build.VERSION.SDK_INT) {
-                    mDestinationUri = FileProvider.getUriForFile(
-                        contextWeakReference?.get()!!,
-                        "$applicationId.provider",
-                        photoFile
-                    ) //(use your app signature + ".provider" )imageFile);
+                    mDestinationUri = FileProvider.getUriForFile(contextWeakReference?.get()!!, "$applicationId.provider", photoFile) //(use your app signature + ".provider" )imageFile);
                 } else {
                     mDestinationUri = Uri.fromFile(photoFile)
                 }
@@ -163,21 +194,35 @@ class ImageManager private constructor(builder: Builder)  {
         return takePictureIntent
     }
 
-    fun onSaveInstanceState(outState: Bundle){
-        outState.putParcelable("savedUri", mDestinationUri)
-        outState.putString("mCurrentPhotoPath", mCurrentPhotoPath)
-        outState.putBoolean("isCrop", isCrop)
+    fun onSaveInstanceState(outState: Bundle?){
+        outState?:return
+        outState.putParcelable(::mDestinationUri.name, mDestinationUri)
+        outState.putString(::mCurrentPhotoPath.name, mCurrentPhotoPath)
+        outState.putBoolean(::isCrop.name, isCrop)
         outState.putInt("sampleSize", sampleSize.value)
-
+        outState.putInt(::targetWidth.name, targetWidth)
+        outState.putInt(::targetHeight.name, targetHeight)
+        printBundle(outState)
     }
 
     fun prepareInstance(savedInstanceState: Bundle?){
-        savedInstanceState?.apply {
-            mDestinationUri = savedInstanceState.getParcelable("savedUri")
-            mCurrentPhotoPath = savedInstanceState.getString("mCurrentPhotoPath")
-            isCrop = savedInstanceState.getBoolean("isCrop")
-            sampleSize = SampleSize.NORMAL// TODO::
-        }
+        savedInstanceState ?:return
+        mDestinationUri = savedInstanceState.getParcelable(::mDestinationUri.name)
+        mCurrentPhotoPath = savedInstanceState.getString(::mCurrentPhotoPath.name)
+        isCrop = savedInstanceState.getBoolean(::isCrop.name)
+        sampleSize = SampleSize.NORMAL// TODO::
+        targetWidth = savedInstanceState.getInt(::targetWidth.name)
+        targetHeight = savedInstanceState.getInt(::targetHeight.name)
+        printBundle(savedInstanceState)
+    }
+
+    private fun printBundle(bundle: Bundle?) {
+        if(!debugLogEnabled) return
+        bundle ?: return
+
+        val text = bundle.keySet().joinToString(", ", "{", "}") { key -> "$key=${bundle[key]}" }
+
+        Log.d(tag, text)
     }
 
     private fun getBitmap(size:Int): Bitmap? {
@@ -231,6 +276,25 @@ class ImageManager private constructor(builder: Builder)  {
             cursor.getString(columnIndex)
         } finally {
             cursor?.close()
+        }
+    }
+
+    fun getResizedBitmap(bm: Bitmap, newWidth: Int, newHeight: Int): Bitmap? {
+        if(debugLogEnabled){ Log.d(tag, "resized") }
+        return try {
+            val width = bm.width
+            val height = bm.height
+            val scaleWidth = newWidth.toFloat() / width
+            val scaleHeight = newHeight.toFloat() / height
+            // CREATE A MATRIX FOR THE MANIPULATION
+            val matrix = Matrix()
+            // RESIZE THE BIT MAP
+            matrix.postScale(scaleWidth, scaleHeight)
+            // "RECREATE" THE NEW BITMAP
+            // bm.recycle();
+            Bitmap.createBitmap(bm, 0, 0, width, height, matrix, false)
+        } catch (e: Exception) {
+            bm
         }
     }
 }
