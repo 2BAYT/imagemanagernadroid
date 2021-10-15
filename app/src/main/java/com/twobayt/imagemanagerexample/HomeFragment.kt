@@ -39,6 +39,7 @@ class HomeFragment : Fragment(), ICropProvider{
     private fun buildImageManager() {
         imageManager = ImageManager.Builder(context)
             .debugLogEnabled()
+            .fixExif()
             .targetWidth(1500)
             .targetHeight(1278)
             .crop(true)

@@ -7,6 +7,7 @@ import android.database.Cursor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -44,10 +45,14 @@ class ImageManager private constructor(builder: Builder)  {
     private var targetWidth = Int.MAX_VALUE
     private var targetHeight = Int.MAX_VALUE
     private var debugLogEnabled = false
+    private var fixExif = false
+
+
 
     private val galleryIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
 
     init {
+        this.fixExif = builder.fixExif
         this.debugLogEnabled = builder.debugLogEnabled
         this.isCrop = builder.isCrop
         this.targetWidth = builder.targetWidth
@@ -57,10 +62,11 @@ class ImageManager private constructor(builder: Builder)  {
         this.applicationId = builder.context!!.packageName
     }
 
-    data class Builder(var context: Context? = null, var isCrop: Boolean = true, var sampleSize: SampleSize = SampleSize.NORMAL, var targetWidth: Int = Int.MAX_VALUE, var targetHeight: Int = Int.MAX_VALUE, var debugLogEnabled:Boolean = false)
+    data class Builder(var context: Context? = null, var isCrop: Boolean = true, var sampleSize: SampleSize = SampleSize.NORMAL, var targetWidth: Int = Int.MAX_VALUE, var targetHeight: Int = Int.MAX_VALUE, var debugLogEnabled:Boolean = false, var fixExif:Boolean = false)
     {
         // builder code
         fun debugLogEnabled() = apply { this.debugLogEnabled = true }
+        fun fixExif() = apply { this.fixExif = true }
         fun crop(isCrop: Boolean) = apply { this.isCrop = isCrop }
         fun sampleSize(sampleSize: SampleSize) = apply { this.sampleSize = sampleSize }
         fun targetWidth(targetWidth: Int) = apply { this.targetWidth = targetWidth }
@@ -89,7 +95,7 @@ class ImageManager private constructor(builder: Builder)  {
         this.cameraLauncher = fragment.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
             if (result.resultCode == Activity.RESULT_OK) {
                 val resultBitmap: Bitmap? = getBitmapFromCurrentPath()
-                handleBitmap(openCropProvider, resultBitmap, callback)
+                handleBitmap(openCropProvider, resultBitmap, callback, Source.CAMERA)
             }
         }
     }
@@ -99,7 +105,7 @@ class ImageManager private constructor(builder: Builder)  {
             if (result.resultCode == Activity.RESULT_OK) {
                 mCurrentPhotoPath = getRealPath(activity, result.data?.data)
                 val resultBitmap = getBitmapFromCurrentPath()
-                handleBitmap(openCropProvider, resultBitmap, callback)
+                handleBitmap(openCropProvider, resultBitmap, callback, Source.GALLERY)
             }
         }
     }
@@ -126,7 +132,7 @@ class ImageManager private constructor(builder: Builder)  {
         return arrayOf(newWidth, newHeight)
     }
 
-    private fun handleBitmap(openCropProvider: ICropProvider?, bitmap: Bitmap?, callback: (bitmap: Bitmap?) -> Unit) {
+    private fun handleBitmap(openCropProvider: ICropProvider?, bitmap: Bitmap?, callback: (bitmap: Bitmap?) -> Unit, source: Source) {
         bitmap ?: return
         var resultBitmap:Bitmap? = bitmap
         if(debugLogEnabled){ Log.d(tag, "selected bitmap width = "+bitmap.width+" height = "+bitmap.height) }
@@ -137,6 +143,11 @@ class ImageManager private constructor(builder: Builder)  {
         if(bitmap.width!=newDimens[0].toInt() || bitmap.height!=newDimens[1].toInt()){ // when dimens changed resize
             resultBitmap = getResizedBitmap(bitmap, newWidth = newDimens[0].toInt(), newHeight = newDimens[1].toInt())
         }
+
+        if(source == Source.CAMERA && fixExif){
+            resultBitmap = fixExifOrientation(bitmap, mCurrentPhotoPath)
+        }
+
         if(debugLogEnabled){ Log.d(tag, "resized bitmap width = "+newDimens[0].toInt()+" height = "+newDimens[1].toInt()) }
 
         if(isCrop){
@@ -279,7 +290,68 @@ class ImageManager private constructor(builder: Builder)  {
         }
     }
 
-    fun getResizedBitmap(bm: Bitmap, newWidth: Int, newHeight: Int): Bitmap? {
+    private fun fixExifOrientation(b: Bitmap?, image_path: String?): Bitmap? {
+        var bitmap = b
+        return try {
+            val exif = ExifInterface(image_path!!)
+            if(debugLogEnabled){
+                Log.d(tag, "Exif value = $exif")
+            }
+
+            val orientation: Int = exif.getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_UNDEFINED
+            )
+            bitmap = rotateBitmap(bitmap!!, orientation)
+            if(debugLogEnabled){
+                Log.d(tag, "Exif value = $orientation")
+            }
+            bitmap
+        } catch (e: Exception) {
+            bitmap
+        }
+    }
+
+    private fun rotateBitmap(bitmap: Bitmap, orientation: Int): Bitmap? {
+        return try {
+            val matrix = Matrix()
+            when (orientation) {
+                ExifInterface.ORIENTATION_NORMAL -> return bitmap
+                ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.setScale(-1f, 1f)
+                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.setRotate(180f)
+                ExifInterface.ORIENTATION_FLIP_VERTICAL -> {
+                    matrix.setRotate(180f)
+                    matrix.postScale(-1f, 1f)
+                }
+                ExifInterface.ORIENTATION_TRANSPOSE -> {
+                    matrix.setRotate(90f)
+                    matrix.postScale(-1f, 1f)
+                }
+                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.setRotate(90f)
+                ExifInterface.ORIENTATION_TRANSVERSE -> {
+                    matrix.setRotate(-90f)
+                    matrix.postScale(-1f, 1f)
+                }
+                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.setRotate(-90f)
+                else -> return bitmap
+            }
+            val bmRotated =
+                Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+            bitmap.recycle()
+            if(debugLogEnabled){
+                Log.d(tag, "exif rotated ")
+            }
+            bmRotated
+        } catch (e: OutOfMemoryError) {
+            e.printStackTrace()
+            bitmap
+        } catch (e: Exception) {
+            bitmap
+        }
+    }
+
+
+    private fun getResizedBitmap(bm: Bitmap, newWidth: Int, newHeight: Int): Bitmap? {
         if(debugLogEnabled){ Log.d(tag, "resized") }
         return try {
             val width = bm.width
