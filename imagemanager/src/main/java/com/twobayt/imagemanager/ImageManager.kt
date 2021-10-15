@@ -26,7 +26,6 @@ import java.lang.Exception
 import java.lang.ref.WeakReference
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlin.math.roundToInt
 
 class ImageManager private constructor(builder: Builder)  {
 
@@ -48,7 +47,6 @@ class ImageManager private constructor(builder: Builder)  {
     private var fixExif = false
 
 
-
     private val galleryIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
 
     init {
@@ -57,8 +55,9 @@ class ImageManager private constructor(builder: Builder)  {
         this.isCrop = builder.isCrop
         this.targetWidth = builder.targetWidth
         this.targetHeight = builder.targetHeight
-        this.contextWeakReference = WeakReference(builder.context)
         this.sampleSize = builder.sampleSize
+
+        this.contextWeakReference = WeakReference(builder.context)
         this.applicationId = builder.context!!.packageName
     }
 
@@ -110,7 +109,7 @@ class ImageManager private constructor(builder: Builder)  {
         }
     }
 
-    private fun calculateAccordingToTargets(width: Float, height:Float): Array<Float> {
+     fun calculateAccordingToTargets(width: Float, height:Float): Array<Float> {
         val widthRatio:Float = width / targetWidth.toFloat()
         val heightRatio:Float = height / targetHeight.toFloat()
         val newWidth:Float
