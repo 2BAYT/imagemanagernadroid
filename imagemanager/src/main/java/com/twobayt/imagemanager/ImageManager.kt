@@ -43,7 +43,11 @@ class ImageManager private constructor(builder: Builder){
     private var fixExif = false
 
 
+
     private val galleryIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+
+    private var source:Source? = null
+
 
     init {
         this.fixExif = builder.fixExif
@@ -90,17 +94,33 @@ class ImageManager private constructor(builder: Builder){
         }
     }
 
+    fun register(activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?,  bitmapCallback: (bitmap: Bitmap?) -> Unit, source: (source: Source) -> Unit) {
+        registerCameraLauncher(activity, fragment, openCropProvider, bitmapCallback)
+        registerGalleryLauncher(activity, fragment, openCropProvider, bitmapCallback)
+
+        if(isCrop){
+            if(debugLogEnabled){
+                Log.d("ImageManager", "crop registered")
+            }
+            RxBus.listen(RxEvent.EventImageSelected::class.java).subscribe {
+                if(fragment==null || !fragment.isResumed || fragment.isDetached){
+                    return@subscribe
+                }
+                bitmapCallback(it.bitmap)
+                source(it.source!!)
+            }
+        }
+    }
 
 
-    private var cropFragment: CropFragment? = null
     private fun handleBitmap(openCropProvider: ICropProvider?, bitmap: Bitmap?, callback: (bitmap: Bitmap?) -> Unit, source: Source) {
         bitmap ?: return
         var resultBitmap:Bitmap? = bitmap
         if(debugLogEnabled){ Log.d(tag, "selected bitmap width = "+bitmap.width+" height = "+bitmap.height) }
-
+        this.source = source
         if(isCrop){ // crop handles exis and target resize
-            cropFragment = CropFragment.newInstance(mCurrentPhotoPath!!, getSettings())
-            openCropProvider?.openCrop(cropFragment!!)
+            var cropFragment = CropFragment.newInstance(mCurrentPhotoPath!!, getSettings(), source.ordinal)
+            openCropProvider?.openCrop(cropFragment)
             if(openCropProvider==null){
                 Log.e(tag, "Crop Provider Not Found")
             }
@@ -161,6 +181,9 @@ class ImageManager private constructor(builder: Builder){
 
     fun onSaveInstanceState(outState: Bundle?){
         outState?:return
+        source?.apply {
+            outState.putInt("source", this.ordinal)
+        }
         //outState.putBoolean("cropRegistered", cropRegistered!!)
         outState.putParcelable(::mDestinationUri.name, mDestinationUri)
         outState.putString(::mCurrentPhotoPath.name, mCurrentPhotoPath)
@@ -173,6 +196,12 @@ class ImageManager private constructor(builder: Builder){
 
     fun prepareInstance(savedInstanceState: Bundle?){
         savedInstanceState ?:return
+        if(savedInstanceState.getInt("source")==0){
+            source = Source.CAMERA
+        }else{
+            source = Source.GALLERY
+        }
+
         //cropRegistered = savedInstanceState.getBoolean("cropRegistered")
         mDestinationUri = savedInstanceState.getParcelable(::mDestinationUri.name)
         mCurrentPhotoPath = savedInstanceState.getString(::mCurrentPhotoPath.name)
@@ -232,17 +261,6 @@ class ImageManager private constructor(builder: Builder){
         }
     }
 
-    fun registerCropFeature(fragment: Fragment?, callback: (bitmap: Bitmap?) -> Unit) {
-        if(debugLogEnabled){
-            Log.d("ImageManager", "crop registered")
-        }
-        RxBus.listen(RxEvent.EventImageCropped::class.java).subscribe {
-            if(fragment==null || !fragment.isResumed || fragment.isDetached){
-                return@subscribe
-            }
-            callback(it.bitmap)
-        }
-    }
 
 
 }

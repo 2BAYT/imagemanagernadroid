@@ -2,5 +2,5 @@ package com.twobayt.imagemanager
 import android.graphics.Bitmap
 
 class RxEvent {
-    data class EventImageCropped(val bitmap: Bitmap)
+    data class EventImageSelected(val bitmap: Bitmap, val source: Source)
 }

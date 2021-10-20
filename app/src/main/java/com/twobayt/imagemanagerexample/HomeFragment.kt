@@ -36,6 +36,7 @@ class HomeFragment : Fragment(), ICropProvider{
         return v
     }
 
+
     private fun buildImageManager(savedInstanceState: Bundle?) {
         imageManager = ImageManager.Builder(context)
                 .debugLogEnabled()
@@ -47,10 +48,8 @@ class HomeFragment : Fragment(), ICropProvider{
                 .build()
 
         imageManager?.prepareInstance(savedInstanceState)
+        imageManager?.register(requireActivity(),this, this, { onImageSelected(it) },{})
 
-        imageManager?.registerCameraLauncher(requireActivity(),this, this){ onImageSelected(it) }
-        imageManager?.registerGalleryLauncher(requireActivity(),this, this){ onImageSelected(it) }
-        imageManager?.registerCropFeature(this){ onImageSelected(it) }
     }
 
 

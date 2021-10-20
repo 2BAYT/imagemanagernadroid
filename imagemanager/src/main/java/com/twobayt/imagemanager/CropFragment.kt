@@ -15,14 +15,8 @@ class CropFragment : Fragment() {
 
     var settings: ImageManager.Builder? = null
     var imagePath: String? = null
+    var source: Int? = null
 
-
-    interface CropDoneListener {
-        fun onCropped(bitmap: Bitmap)
-    }
-
-
-    public var listener:CropDoneListener?  = null
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         val v = inflater.inflate(R.layout.crop_fragment, container, false)
         prepareView(v)
@@ -30,7 +24,6 @@ class CropFragment : Fragment() {
         setListeners()
         return v
     }
-
 
     private fun prepareImage() {
         imagePath ?:return
@@ -51,9 +44,18 @@ class CropFragment : Fragment() {
         }
     }
 
+
+    private fun getSource(): Source {
+        if(this.source!! == Source.CAMERA.ordinal){
+            return Source.CAMERA
+        }else{
+            return Source.GALLERY
+        }
+    }
+
     private fun setListeners() {
         okTV.setOnClickListener {
-            RxBus.publish(RxEvent.EventImageCropped(cropIV.croppedImage))
+            RxBus.publish(RxEvent.EventImageSelected(cropIV.croppedImage, getSource()))
             closeFragment()
         }
 
@@ -70,6 +72,7 @@ class CropFragment : Fragment() {
         arguments?.apply {
             settings = requireArguments().getSerializable("settings") as ImageManager.Builder?
             imagePath = requireArguments().getString("imagePath")
+            source = requireArguments().getInt("source")
         }
     }
 
@@ -88,10 +91,11 @@ class CropFragment : Fragment() {
 
     companion object {
         @JvmStatic
-        fun newInstance(imagePath: String, settings: ImageManager.Builder): CropFragment {
+        fun newInstance(imagePath: String, settings: ImageManager.Builder, source: Int): CropFragment {
             val addPostFragment = CropFragment()
             val bundle = Bundle()
             bundle.putString("imagePath", imagePath)
+            bundle.putInt("source", source)
             bundle.putSerializable("settings", settings)
             addPostFragment.arguments = bundle
             return addPostFragment
