@@ -6,12 +6,8 @@ import android.content.Intent
 import android.database.Cursor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Matrix
-import android.media.ExifInterface
 import android.net.Uri
-import android.os.Build
-import android.os.Bundle
-import android.os.Environment
+import android.os.*
 import android.provider.MediaStore
 import android.util.Log
 import androidx.activity.result.ActivityResult
@@ -20,14 +16,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
-import java.lang.Exception
+import java.io.Serializable
 import java.lang.ref.WeakReference
 import java.text.SimpleDateFormat
 import java.util.*
 
-class ImageManager private constructor(builder: Builder)  {
+
+class ImageManager private constructor(builder: Builder){
 
     private val tag: String =  "ImageManager"
     private var applicationId:String
@@ -59,10 +55,11 @@ class ImageManager private constructor(builder: Builder)  {
 
         this.contextWeakReference = WeakReference(builder.context)
         this.applicationId = builder.context!!.packageName
+
+
     }
 
-    data class Builder(var context: Context? = null, var isCrop: Boolean = true, var sampleSize: SampleSize = SampleSize.NORMAL, var targetWidth: Int = Int.MAX_VALUE, var targetHeight: Int = Int.MAX_VALUE, var debugLogEnabled:Boolean = false, var fixExif:Boolean = false)
-    {
+    data class Builder(var context: Context? = null, var isCrop: Boolean = true, var sampleSize: SampleSize = SampleSize.NORMAL, var targetWidth: Int = Int.MAX_VALUE, var targetHeight: Int = Int.MAX_VALUE, var debugLogEnabled:Boolean = false, var fixExif:Boolean = false) : Serializable{
         // builder code
         fun debugLogEnabled() = apply { this.debugLogEnabled = true }
         fun fixExif() = apply { this.fixExif = true }
@@ -71,23 +68,6 @@ class ImageManager private constructor(builder: Builder)  {
         fun targetWidth(targetWidth: Int) = apply { this.targetWidth = targetWidth }
         fun targetHeight(targetHeight: Int) = apply { this.targetHeight = targetHeight }
         fun build() = ImageManager(this)
-    }
-
-    fun writeToFile(bitmap: Bitmap?): File {
-        val compress = 90
-        val rnd = Random()
-        val number = rnd.nextInt(3000)
-        val file = File(contextWeakReference?.get()?.getExternalFilesDir(Environment.DIRECTORY_PICTURES)?.path + "/saved_images" + number + ".jpg")
-        try {
-            file.createNewFile()
-            val stream = FileOutputStream(file)
-            bitmap?.compress(Bitmap.CompressFormat.JPEG, compress, stream)
-            stream.close()
-            return file
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        return file
     }
 
     fun registerCameraLauncher(activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?, callback: (bitmap: Bitmap?) -> Unit){
@@ -102,6 +82,7 @@ class ImageManager private constructor(builder: Builder)  {
     fun registerGalleryLauncher(activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?, callback: (bitmap: Bitmap?) -> Unit){
         this.galleryLauncher = fragment.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
             if (result.resultCode == Activity.RESULT_OK) {
+                fixExif = false // force for gallery
                 mCurrentPhotoPath = getRealPath(activity, result.data?.data)
                 val resultBitmap = getBitmapFromCurrentPath()
                 handleBitmap(openCropProvider, resultBitmap, callback, Source.GALLERY)
@@ -109,60 +90,34 @@ class ImageManager private constructor(builder: Builder)  {
         }
     }
 
-     fun calculateAccordingToTargets(width: Float, height:Float): Array<Float> {
-        val widthRatio:Float = width / targetWidth.toFloat()
-        val heightRatio:Float = height / targetHeight.toFloat()
-        val newWidth:Float
-        val newHeight:Float
-        if(heightRatio > widthRatio){
-            // resize according to height ratio
-             newWidth = (width/heightRatio)
-             newHeight = (height/heightRatio)
-        }else{
-            // resize according to width ratio
-             newWidth = (width/widthRatio)
-             newHeight = (height/widthRatio)
-        }
 
-        if(heightRatio<1 && widthRatio<1){ // must not resize
-            return arrayOf(width, height) // return same values
-        }
 
-        return arrayOf(newWidth, newHeight)
-    }
-
+    private var cropFragment: CropFragment? = null
     private fun handleBitmap(openCropProvider: ICropProvider?, bitmap: Bitmap?, callback: (bitmap: Bitmap?) -> Unit, source: Source) {
         bitmap ?: return
         var resultBitmap:Bitmap? = bitmap
         if(debugLogEnabled){ Log.d(tag, "selected bitmap width = "+bitmap.width+" height = "+bitmap.height) }
 
-        val dimens = calculateAccordingToTargets(bitmap.width.toFloat(), bitmap.height.toFloat()) // For height
-        val newDimens = calculateAccordingToTargets(width = dimens[0], height = dimens[1]) // for width
-
-        if(bitmap.width!=newDimens[0].toInt() || bitmap.height!=newDimens[1].toInt()){ // when dimens changed resize
-            resultBitmap = getResizedBitmap(bitmap, newWidth = newDimens[0].toInt(), newHeight = newDimens[1].toInt())
-        }
-
-        if(source == Source.CAMERA && fixExif){
-            resultBitmap = fixExifOrientation(bitmap, mCurrentPhotoPath)
-        }
-
-        if(debugLogEnabled){ Log.d(tag, "resized bitmap width = "+newDimens[0].toInt()+" height = "+newDimens[1].toInt()) }
-
-        if(isCrop){
-            val cropFragment = CropFragment.newInstance(resultBitmap)
-            cropFragment.setOnCropDoneListener(object : CropFragment.CropDoneListener{
-                override fun onCropped(bitmap: Bitmap?) {
-                    callback(bitmap)
-                }
-            })
-            openCropProvider?.openCrop(cropFragment)
+        if(isCrop){ // crop handles exis and target resize
+            cropFragment = CropFragment.newInstance(mCurrentPhotoPath!!, getSettings())
+            openCropProvider?.openCrop(cropFragment!!)
             if(openCropProvider==null){
                 Log.e(tag, "Crop Provider Not Found")
             }
         }else{
+            resultBitmap = BitmapUtils.applySettings(getSettings(), mCurrentPhotoPath)
             callback(resultBitmap)
         }
+    }
+
+    private fun getSettings(): Builder{
+        return Builder(
+            isCrop = isCrop,
+            targetHeight = targetHeight,
+            targetWidth = targetWidth,
+            sampleSize = sampleSize,
+            fixExif = fixExif,
+        )
     }
 
     @Throws(IOException::class)
@@ -206,6 +161,7 @@ class ImageManager private constructor(builder: Builder)  {
 
     fun onSaveInstanceState(outState: Bundle?){
         outState?:return
+        //outState.putBoolean("cropRegistered", cropRegistered!!)
         outState.putParcelable(::mDestinationUri.name, mDestinationUri)
         outState.putString(::mCurrentPhotoPath.name, mCurrentPhotoPath)
         outState.putBoolean(::isCrop.name, isCrop)
@@ -217,6 +173,7 @@ class ImageManager private constructor(builder: Builder)  {
 
     fun prepareInstance(savedInstanceState: Bundle?){
         savedInstanceState ?:return
+        //cropRegistered = savedInstanceState.getBoolean("cropRegistered")
         mDestinationUri = savedInstanceState.getParcelable(::mDestinationUri.name)
         mCurrentPhotoPath = savedInstanceState.getString(::mCurrentPhotoPath.name)
         isCrop = savedInstanceState.getBoolean(::isCrop.name)
@@ -239,7 +196,7 @@ class ImageManager private constructor(builder: Builder)  {
         val options = BitmapFactory.Options()
         options.inJustDecodeBounds = true
         BitmapFactory.decodeFile(mCurrentPhotoPath, options)
-        options.inSampleSize = calculateInSampleSize(options, size, size)
+        options.inSampleSize = BitmapUtils.calculateInSampleSize(options, size, size)
         options.inJustDecodeBounds = false
         return  BitmapFactory.decodeFile(mCurrentPhotoPath, options)
     }
@@ -250,20 +207,6 @@ class ImageManager private constructor(builder: Builder)  {
         }catch (e:OutOfMemoryError){
             getBitmap(sampleSize.value / 2)
         }
-    }
-
-    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
-        val height = options.outHeight
-        val width = options.outWidth
-        var inSampleSize = 1
-        if (height > reqHeight || width > reqWidth) {
-            val halfHeight = height / 2
-            val halfWidth = width / 2
-            while (halfHeight / inSampleSize > reqHeight && halfWidth / inSampleSize > reqWidth) {
-                inSampleSize *= 2
-            }
-        }
-        return inSampleSize
     }
 
     fun launchCamera() {
@@ -289,83 +232,17 @@ class ImageManager private constructor(builder: Builder)  {
         }
     }
 
-    private fun fixExifOrientation(b: Bitmap?, image_path: String?): Bitmap? {
-        var bitmap = b
-        return try {
-            val exif = ExifInterface(image_path!!)
-            if(debugLogEnabled){
-                Log.d(tag, "Exif value = $exif")
-            }
-
-            val orientation: Int = exif.getAttributeInt(
-                ExifInterface.TAG_ORIENTATION,
-                ExifInterface.ORIENTATION_UNDEFINED
-            )
-            bitmap = rotateBitmap(bitmap!!, orientation)
-            if(debugLogEnabled){
-                Log.d(tag, "Exif value = $orientation")
-            }
-            bitmap
-        } catch (e: Exception) {
-            bitmap
+    fun registerCropFeature(fragment: Fragment?, callback: (bitmap: Bitmap?) -> Unit) {
+        if(debugLogEnabled){
+            Log.d("ImageManager", "crop registered")
         }
-    }
-
-    private fun rotateBitmap(bitmap: Bitmap, orientation: Int): Bitmap? {
-        return try {
-            val matrix = Matrix()
-            when (orientation) {
-                ExifInterface.ORIENTATION_NORMAL -> return bitmap
-                ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.setScale(-1f, 1f)
-                ExifInterface.ORIENTATION_ROTATE_180 -> matrix.setRotate(180f)
-                ExifInterface.ORIENTATION_FLIP_VERTICAL -> {
-                    matrix.setRotate(180f)
-                    matrix.postScale(-1f, 1f)
-                }
-                ExifInterface.ORIENTATION_TRANSPOSE -> {
-                    matrix.setRotate(90f)
-                    matrix.postScale(-1f, 1f)
-                }
-                ExifInterface.ORIENTATION_ROTATE_90 -> matrix.setRotate(90f)
-                ExifInterface.ORIENTATION_TRANSVERSE -> {
-                    matrix.setRotate(-90f)
-                    matrix.postScale(-1f, 1f)
-                }
-                ExifInterface.ORIENTATION_ROTATE_270 -> matrix.setRotate(-90f)
-                else -> return bitmap
+        RxBus.listen(RxEvent.EventImageCropped::class.java).subscribe {
+            if(fragment==null || !fragment.isResumed || fragment.isDetached){
+                return@subscribe
             }
-            val bmRotated =
-                Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-            bitmap.recycle()
-            if(debugLogEnabled){
-                Log.d(tag, "exif rotated ")
-            }
-            bmRotated
-        } catch (e: OutOfMemoryError) {
-            e.printStackTrace()
-            bitmap
-        } catch (e: Exception) {
-            bitmap
+            callback(it.bitmap)
         }
     }
 
 
-    private fun getResizedBitmap(bm: Bitmap, newWidth: Int, newHeight: Int): Bitmap? {
-        if(debugLogEnabled){ Log.d(tag, "resized") }
-        return try {
-            val width = bm.width
-            val height = bm.height
-            val scaleWidth = newWidth.toFloat() / width
-            val scaleHeight = newHeight.toFloat() / height
-            // CREATE A MATRIX FOR THE MANIPULATION
-            val matrix = Matrix()
-            // RESIZE THE BIT MAP
-            matrix.postScale(scaleWidth, scaleHeight)
-            // "RECREATE" THE NEW BITMAP
-            // bm.recycle();
-            Bitmap.createBitmap(bm, 0, 0, width, height, matrix, false)
-        } catch (e: Exception) {
-            bm
-        }
-    }
 }

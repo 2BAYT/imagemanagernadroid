@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,10 +14,10 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import com.twobayt.imagemanager.CropFragment
-import com.twobayt.imagemanager.ICropProvider
-import com.twobayt.imagemanager.ImageManager
-import com.twobayt.imagemanager.SampleSize
+import com.twobayt.imagemanager.*
+import android.app.Activity
+import java.lang.UnsupportedOperationException
+
 
 class HomeFragment : Fragment(), ICropProvider{
 
@@ -24,33 +25,38 @@ class HomeFragment : Fragment(), ICropProvider{
     private lateinit var gallery: TextView
     private lateinit var selectedImage: ImageView
 
-    private lateinit var imageManager: ImageManager
+    private var imageManager: ImageManager? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         val v = inflater.inflate(R.layout.fragment_home, container, false)
-        buildImageManager()
-        imageManager.prepareInstance(savedInstanceState)
+        buildImageManager(savedInstanceState)
         prepareView(v)
         setListeners()
         checkWriteStoragePermission()
         return v
     }
 
-    private fun buildImageManager() {
+    private fun buildImageManager(savedInstanceState: Bundle?) {
         imageManager = ImageManager.Builder(context)
-            .debugLogEnabled()
-            .fixExif()
-            .targetWidth(1500)
-            .targetHeight(1278)
-            .crop(true)
-            .sampleSize(SampleSize.BIG)
-            .build()
+                .debugLogEnabled()
+                .fixExif()
+                .targetWidth(1500)
+                .targetHeight(1278)
+                .crop(true)
+                .sampleSize(SampleSize.BIG)
+                .build()
 
-        imageManager.registerCameraLauncher(requireActivity(),this, this){ onImageSelected(it) }
-        imageManager.registerGalleryLauncher(requireActivity(),this, this){ onImageSelected(it) }
+        imageManager?.prepareInstance(savedInstanceState)
+
+        imageManager?.registerCameraLauncher(requireActivity(),this, this){ onImageSelected(it) }
+        imageManager?.registerGalleryLauncher(requireActivity(),this, this){ onImageSelected(it) }
+        imageManager?.registerCropFeature(this){ onImageSelected(it) }
     }
 
+
+
     override fun openCrop(fragment: CropFragment) {
+
         activity?.supportFragmentManager
             ?.beginTransaction()
             ?.add(R.id.content, fragment)
@@ -68,7 +74,7 @@ class HomeFragment : Fragment(), ICropProvider{
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        imageManager.onSaveInstanceState(outState)
+        imageManager?.onSaveInstanceState(outState)
     }
 
     private fun onImageSelected(bitmap: Bitmap?) {
@@ -77,10 +83,10 @@ class HomeFragment : Fragment(), ICropProvider{
 
     private fun setListeners() {
         camera.setOnClickListener {
-            imageManager.launchCamera()
+            imageManager?.launchCamera()
         }
         gallery.setOnClickListener {
-            imageManager.launchGallery()
+            imageManager?.launchGallery()
         }
     }
 

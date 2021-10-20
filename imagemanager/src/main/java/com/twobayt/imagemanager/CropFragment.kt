@@ -10,59 +10,66 @@ import android.widget.TextView
 import androidx.fragment.app.Fragment
 import com.edmodo.cropper.CropImageView
 
+
 class CropFragment : Fragment() {
-    var bitmap: Bitmap? = null
+
+    var settings: ImageManager.Builder? = null
+    var imagePath: String? = null
+
 
     interface CropDoneListener {
-        fun onCropped(bitmap: Bitmap?)
+        fun onCropped(bitmap: Bitmap)
     }
 
-    var listener: CropDoneListener? = null
+
+    public var listener:CropDoneListener?  = null
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         val v = inflater.inflate(R.layout.crop_fragment, container, false)
         prepareView(v)
+        prepareImage()
         setListeners()
-        init()
         return v
     }
 
-    private fun init() {
-        cropIV.setGuidelines(1)
-        cropIV.setImageBitmap(bitmap)
+
+    private fun prepareImage() {
+        imagePath ?:return
+        settings ?: return
+
+        settings?.apply {
+            var bitmap: Bitmap? = BitmapUtils.applySettings(this, imagePath!!)
+            cropIV.setGuidelines(1)
+            cropIV.setImageBitmap(bitmap)
+        }
+    }
+
+    private fun closeFragment(){
+        activity?.let {
+            if(!it.isFinishing){
+                it.onBackPressed()
+            }
+        }
     }
 
     private fun setListeners() {
-        okTV.setOnClickListener { _: View? ->
-            if (listener != null) {
-                listener!!.onCropped(cropIV.croppedImage)
-                activity?.let {
-                    if(!it.isFinishing){
-                        it.onBackPressed()
-                    }
-                }
-
-            }
+        okTV.setOnClickListener {
+            RxBus.publish(RxEvent.EventImageCropped(cropIV.croppedImage))
+            closeFragment()
         }
 
         cancelTV.setOnClickListener {
-            if(activity?.isFinishing != true){
-                activity?.onBackPressed()
-            }
+            closeFragment()
         }
-
-
         rotateRightIV.setOnClickListener { cropIV.rotateImage(90) }
         rotateLeftIV.setOnClickListener { cropIV.rotateImage(-90) }
     }
 
-    fun setOnCropDoneListener(listener: CropDoneListener?) {
-        this.listener = listener
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         arguments?.apply {
-            bitmap = requireArguments().getParcelable("bitmap")
+            settings = requireArguments().getSerializable("settings") as ImageManager.Builder?
+            imagePath = requireArguments().getString("imagePath")
         }
     }
 
@@ -81,12 +88,14 @@ class CropFragment : Fragment() {
 
     companion object {
         @JvmStatic
-        fun newInstance(bitmap: Bitmap?): CropFragment {
+        fun newInstance(imagePath: String, settings: ImageManager.Builder): CropFragment {
             val addPostFragment = CropFragment()
             val bundle = Bundle()
-            bundle.putParcelable("bitmap", bitmap)
+            bundle.putString("imagePath", imagePath)
+            bundle.putSerializable("settings", settings)
             addPostFragment.arguments = bundle
             return addPostFragment
         }
     }
+
 }

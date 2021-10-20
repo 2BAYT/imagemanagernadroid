@@ -1,6 +1,8 @@
 package com.twobayt.imagemanager
 
-enum class SampleSize(val value: Int) {
+import java.io.Serializable
+
+enum class SampleSize(val value: Int) : Serializable {
     SMALL(500),
     NORMAL(700),
     BIG(1100),
