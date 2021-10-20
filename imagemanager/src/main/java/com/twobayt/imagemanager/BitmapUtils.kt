@@ -6,7 +6,6 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.media.ExifInterface
 import android.os.Environment
-import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
 import java.lang.Exception
@@ -56,7 +55,7 @@ object BitmapUtils {
                 ExifInterface.TAG_ORIENTATION,
                 ExifInterface.ORIENTATION_UNDEFINED
             )
-            bitmap = BitmapUtils.rotateBitmap(bitmap!!, orientation)
+            bitmap = rotateBitmap(bitmap!!, orientation)
             bitmap
         } catch (e: Exception) {
             bitmap
@@ -65,8 +64,8 @@ object BitmapUtils {
 
     public fun getTargetResizedBitmap(bitmap: Bitmap, targetWidth: Float, targetHeight: Float): Bitmap? {
         var resultBitmap:Bitmap? = null
-        val dimens = BitmapUtils.calculateAccordingToTargets(bitmap.width.toFloat(), bitmap.height.toFloat(), targetWidth.toFloat(), targetHeight.toFloat() ) // For height
-        val newDimens = BitmapUtils.calculateAccordingToTargets(width = dimens[0], height = dimens[1], targetWidth.toFloat(), targetHeight.toFloat()) // for width
+        val dimens = calculateAccordingToTargets(bitmap.width.toFloat(), bitmap.height.toFloat(), targetWidth.toFloat(), targetHeight.toFloat() ) // For height
+        val newDimens = calculateAccordingToTargets(width = dimens[0], height = dimens[1], targetWidth.toFloat(), targetHeight.toFloat()) // for width
 
         if(bitmap.width!=newDimens[0].toInt() || bitmap.height!=newDimens[1].toInt()){ // when dimens changed resize
             resultBitmap = getResizedBitmap(bitmap, newWidth = newDimens[0].toInt(), newHeight = newDimens[1].toInt())
