@@ -44,7 +44,7 @@ class HomeFragment : Fragment(), ICropProvider{
                 .targetWidth(1500)
                 .targetHeight(1278)
                 .crop(true)
-                .sampleSize(SampleSize.BIG)
+                .sampleSize(SampleSize.EXTRABIG)
                 .build()
 
         imageManager?.prepareInstance(savedInstanceState)

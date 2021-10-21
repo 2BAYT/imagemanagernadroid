@@ -74,29 +74,30 @@ class ImageManager private constructor(builder: Builder){
         fun build() = ImageManager(this)
     }
 
-    fun registerCameraLauncher(activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?, callback: (bitmap: Bitmap?) -> Unit){
+    private fun registerCameraLauncher(activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?){
         this.cameraLauncher = fragment.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
             if (result.resultCode == Activity.RESULT_OK) {
-                val resultBitmap: Bitmap? = getBitmapFromCurrentPath()
-                handleBitmap(openCropProvider, resultBitmap, callback, Source.CAMERA)
+                //val resultBitmap: Bitmap? = getBitmapFromCurrentPath()
+                handleBitmap(openCropProvider, mCurrentPhotoPath, Source.CAMERA)
             }
         }
     }
 
-    fun registerGalleryLauncher(activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?, callback: (bitmap: Bitmap?) -> Unit){
+
+    private fun registerGalleryLauncher(activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?){
         this.galleryLauncher = fragment.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
             if (result.resultCode == Activity.RESULT_OK) {
                 fixExif = false // force for gallery
                 mCurrentPhotoPath = getRealPath(activity, result.data?.data)
-                val resultBitmap = getBitmapFromCurrentPath()
-                handleBitmap(openCropProvider, resultBitmap, callback, Source.GALLERY)
+                //val resultBitmap = getBitmapFromCurrentPath()
+                handleBitmap(openCropProvider, mCurrentPhotoPath, Source.GALLERY)
             }
         }
     }
 
     fun register(activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?,  bitmapCallback: (bitmap: Bitmap?) -> Unit, source: (source: Source) -> Unit) {
-        registerCameraLauncher(activity, fragment, openCropProvider, bitmapCallback)
-        registerGalleryLauncher(activity, fragment, openCropProvider, bitmapCallback)
+        registerCameraLauncher(activity, fragment, openCropProvider)
+        registerGalleryLauncher(activity, fragment, openCropProvider)
 
         if(isCrop){
             if(debugLogEnabled){
@@ -113,20 +114,21 @@ class ImageManager private constructor(builder: Builder){
     }
 
 
-    private fun handleBitmap(openCropProvider: ICropProvider?, bitmap: Bitmap?, callback: (bitmap: Bitmap?) -> Unit, source: Source) {
-        bitmap ?: return
-        var resultBitmap:Bitmap? = bitmap
-        if(debugLogEnabled){ Log.d(tag, "selected bitmap width = "+bitmap.width+" height = "+bitmap.height) }
+    private fun handleBitmap(openCropProvider: ICropProvider?, path: String?, source: Source) {
+        path?:return
+
         this.source = source
         if(isCrop){ // crop handles exis and target resize
-            var cropFragment = CropFragment.newInstance(mCurrentPhotoPath!!, getSettings(), source.ordinal)
+            var cropFragment = CropFragment.newInstance(path, getSettings(), source.ordinal)
             openCropProvider?.openCrop(cropFragment)
             if(openCropProvider==null){
                 Log.e(tag, "Crop Provider Not Found")
             }
         }else{
-            resultBitmap = BitmapUtils.applySettings(getSettings(), mCurrentPhotoPath)
-            callback(resultBitmap)
+            var bitmap = BitmapUtils.applySettings(getSettings(), path)
+            bitmap?:return
+            RxBus.publish(RxEvent.EventImageSelected(bitmap, source))
+            //callback(bitmap)
         }
     }
 
@@ -230,11 +232,28 @@ class ImageManager private constructor(builder: Builder){
         return  BitmapFactory.decodeFile(mCurrentPhotoPath, options)
     }
 
+    private fun getBitmap(size:Int, path: String?): Bitmap? {
+        val options = BitmapFactory.Options()
+        options.inJustDecodeBounds = true
+        BitmapFactory.decodeFile(path, options)
+        options.inSampleSize = BitmapUtils.calculateInSampleSize(options, size, size)
+        options.inJustDecodeBounds = false
+        return  BitmapFactory.decodeFile(path, options)
+    }
+
     private fun getBitmapFromCurrentPath(): Bitmap? {
         return try{
             getBitmap(sampleSize.value)
         }catch (e:OutOfMemoryError){
             getBitmap(sampleSize.value / 2)
+        }
+    }
+
+    private fun getBitmapFromCurrentPath(path: String?): Bitmap? {
+        return try{
+            getBitmap(sampleSize.value, path)
+        }catch (e:OutOfMemoryError){
+            getBitmap(sampleSize.value / 2, path)
         }
     }
 

@@ -63,9 +63,9 @@ object BitmapUtils {
     }
 
     public fun getTargetResizedBitmap(bitmap: Bitmap, targetWidth: Float, targetHeight: Float): Bitmap? {
-        var resultBitmap:Bitmap? = null
-        val dimens = calculateAccordingToTargets(bitmap.width.toFloat(), bitmap.height.toFloat(), targetWidth.toFloat(), targetHeight.toFloat() ) // For height
-        val newDimens = calculateAccordingToTargets(width = dimens[0], height = dimens[1], targetWidth.toFloat(), targetHeight.toFloat()) // for width
+        var resultBitmap:Bitmap? = bitmap
+        val dimens = calculateAccordingToTargets(bitmap.width.toFloat(), bitmap.height.toFloat(), targetWidth, targetHeight ) // For height
+        val newDimens = calculateAccordingToTargets(width = dimens[0], height = dimens[1], targetWidth, targetHeight) // for width
 
         if(bitmap.width!=newDimens[0].toInt() || bitmap.height!=newDimens[1].toInt()){ // when dimens changed resize
             resultBitmap = getResizedBitmap(bitmap, newWidth = newDimens[0].toInt(), newHeight = newDimens[1].toInt())
