@@ -13,8 +13,14 @@ maven {
 }
 ```
 
+
+    
+
 ## Add Dependency
-`implementation 'com.twobayt.imagemanager:core:1.0.0'`
+```
+implementation 'com.twobayt.imagemanager:core:1.0.5'
+implementation 'io.reactivex.rxjava2:rxandroid:2.0.2'
+```
 
 ## Crop feature
 `implementation 'com.edmodo:cropper:1.0.1'`
@@ -23,16 +29,22 @@ maven {
 ## Usage
 1. Create Manager with settings
 ```
-var imageManager:ImageManager = ImageManager.Builder(context)
+ imageManager = ImageManager.Builder(context)
+            .targetWidth(1600)
+            .targetHeight(1800)
             .crop(true)
-            .sampleSize(SampleSize.BIG)
+            .sampleSize(SampleSize.EXTRABIG)
             .build()
+
+imageManager?.prepareInstance(savedInstanceState)
+        
 ```
 
 2. Register Listeners
 ```
-imageManager.registerCameraLauncher(Activity, Fragment, ICropProvider){  }
-imageManager.registerGalleryLauncher(Activity, Fragment, ICropProvider){  }
+imageManager?.register(requireActivity(), Fragment, ICropProvideer, { 
+    onImageSelected(it) 
+}, {})
 ```
 
 3. Launch Camera Or Gallery
