@@ -48,7 +48,7 @@ class HomeFragment : Fragment(), ICropProvider{
                 .build()
 
         imageManager?.prepareInstance(savedInstanceState)
-        imageManager?.register(requireActivity(),this, this, { onImageSelected(it) },{})
+        imageManager?.register(requireActivity(),this, this) { bitmap, _ -> onImageSelected(bitmap) }
 
     }
 

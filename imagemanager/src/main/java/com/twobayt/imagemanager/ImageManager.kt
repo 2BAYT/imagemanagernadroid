@@ -95,7 +95,7 @@ class ImageManager private constructor(builder: Builder){
         }
     }
 
-    fun register(activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?,  bitmapCallback: (bitmap: Bitmap?) -> Unit, source: (source: Source) -> Unit) {
+    fun register(activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?,  bitmapCallback: (bitmap: Bitmap?, source:Source?) -> Unit) {
         registerCameraLauncher(activity, fragment, openCropProvider)
         registerGalleryLauncher(activity, fragment, openCropProvider)
 
@@ -107,8 +107,7 @@ class ImageManager private constructor(builder: Builder){
                 if(fragment==null || !fragment.isResumed || fragment.isDetached){
                     return@subscribe
                 }
-                bitmapCallback(it.bitmap)
-                source(it.source!!)
+                bitmapCallback(it.bitmap, it.source)
             }
         }
     }
