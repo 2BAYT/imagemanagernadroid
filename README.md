@@ -18,7 +18,7 @@ maven {
 
 ## Add Dependency
 ```
-implementation 'com.twobayt.imagemanager:core:1.0.5'
+implementation 'com.twobayt.imagemanager:core:1.0.6'
 implementation 'io.reactivex.rxjava2:rxandroid:2.0.2'
 ```
 
@@ -42,9 +42,7 @@ imageManager?.prepareInstance(savedInstanceState)
 
 2. Register Listeners
 ```
-imageManager?.register(requireActivity(), Fragment, ICropProvideer, { 
-    onImageSelected(it) 
-}, {})
+imageManager?.register(requireActivity(),this, this) { bitmap, source -> onImageSelected(bitmap) }
 ```
 
 3. Launch Camera Or Gallery
