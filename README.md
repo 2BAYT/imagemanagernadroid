@@ -18,7 +18,7 @@ maven {
 
 ## Add Dependency
 ```
-implementation 'com.twobayt.imagemanager:core:1.0.6'
+implementation 'com.twobayt.imagemanager:core:1.0.7'
 implementation 'io.reactivex.rxjava2:rxandroid:2.0.2'
 ```
 
