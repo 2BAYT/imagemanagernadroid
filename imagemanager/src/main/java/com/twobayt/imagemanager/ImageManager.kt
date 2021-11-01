@@ -99,17 +99,18 @@ class ImageManager private constructor(builder: Builder){
         registerCameraLauncher(activity, fragment, openCropProvider)
         registerGalleryLauncher(activity, fragment, openCropProvider)
 
-        if(isCrop){
-            if(debugLogEnabled){
-                Log.d("ImageManager", "crop registered")
-            }
-            RxBus.listen(RxEvent.EventImageSelected::class.java).subscribe {
-                if(fragment==null || !fragment.isResumed || fragment.isDetached){
-                    return@subscribe
-                }
-                bitmapCallback(it.bitmap, it.source)
-            }
+        if(debugLogEnabled){
+            Log.d("ImageManager", "registered")
         }
+
+
+        RxBus.listen(RxEvent.EventImageSelected::class.java).subscribe {
+            if(fragment==null || fragment.isDetached || !fragment.isAdded){
+                return@subscribe
+            }
+            bitmapCallback(it.bitmap, it.source)
+        }
+
     }
 
 
