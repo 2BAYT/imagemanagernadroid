@@ -96,8 +96,8 @@ class ImageManager private constructor(builder: Builder){
     }
 
     fun register(eventChannel:String?, activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?,  bitmapCallback: (bitmap: Bitmap?, source:Source?) -> Unit) {
-        registerCameraLauncher(tag, activity, fragment, openCropProvider)
-        registerGalleryLauncher(tag, activity, fragment, openCropProvider)
+        registerCameraLauncher(eventChannel, activity, fragment, openCropProvider)
+        registerGalleryLauncher(eventChannel, activity, fragment, openCropProvider)
 
         if(debugLogEnabled){
             Log.d("ImageManager", "registered")
@@ -107,7 +107,7 @@ class ImageManager private constructor(builder: Builder){
             if(fragment==null || fragment.isDetached || !fragment.isAdded){
                 return@subscribe
             }
-            if(eventChannel==it.eventChannel){
+            if(eventChannel==null || eventChannel == it.eventChannel){
                 bitmapCallback(it.bitmap, it.source)
             }
         }
