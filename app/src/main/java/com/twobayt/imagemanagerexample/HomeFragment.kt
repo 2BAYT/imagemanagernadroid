@@ -26,6 +26,7 @@ class HomeFragment : Fragment(), ICropProvider{
     private lateinit var selectedImage: ImageView
 
     private var imageManager: ImageManager? = null
+    var TAG:String = "HomeFragment"
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         val v = inflater.inflate(R.layout.fragment_home, container, false)
@@ -48,7 +49,7 @@ class HomeFragment : Fragment(), ICropProvider{
                 .build()
 
         imageManager?.prepareInstance(savedInstanceState)
-        imageManager?.register(requireActivity(),this, this) { bitmap, _ -> onImageSelected(bitmap) }
+        imageManager?.register("home", requireActivity(),this, this) { bitmap, _ -> onImageSelected(bitmap) }
 
     }
 

@@ -16,6 +16,7 @@ class CropFragment : Fragment() {
     var settings: ImageManager.Builder? = null
     var imagePath: String? = null
     var source: Int? = null
+    var eventChannel: String? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         val v = inflater.inflate(R.layout.crop_fragment, container, false)
@@ -55,7 +56,7 @@ class CropFragment : Fragment() {
 
     private fun setListeners() {
         okTV.setOnClickListener {
-            RxBus.publish(RxEvent.EventImageSelected(cropIV.croppedImage, getSource()))
+            RxBus.publish(RxEvent.EventImageSelected(cropIV.croppedImage, getSource(), eventChannel))
             closeFragment()
         }
 
@@ -73,6 +74,7 @@ class CropFragment : Fragment() {
             settings = requireArguments().getSerializable("settings") as ImageManager.Builder?
             imagePath = requireArguments().getString("imagePath")
             source = requireArguments().getInt("source")
+            eventChannel = requireArguments().getString("eventChannel") as String?
         }
     }
 
@@ -91,10 +93,11 @@ class CropFragment : Fragment() {
 
     companion object {
         @JvmStatic
-        fun newInstance(imagePath: String, settings: ImageManager.Builder, source: Int): CropFragment {
+        fun newInstance(eventChannel:String?, imagePath: String, settings: ImageManager.Builder, source: Int): CropFragment {
             val addPostFragment = CropFragment()
             val bundle = Bundle()
             bundle.putString("imagePath", imagePath)
+            eventChannel?.apply { bundle.putString("eventChannel", eventChannel) }
             bundle.putInt("source", source)
             bundle.putSerializable("settings", settings)
             addPostFragment.arguments = bundle

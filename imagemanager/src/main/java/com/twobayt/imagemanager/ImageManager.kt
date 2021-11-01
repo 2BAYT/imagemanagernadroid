@@ -74,52 +74,52 @@ class ImageManager private constructor(builder: Builder){
         fun build() = ImageManager(this)
     }
 
-    private fun registerCameraLauncher(activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?){
+    private fun registerCameraLauncher(tag: String?, activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?){
         this.cameraLauncher = fragment.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
             if (result.resultCode == Activity.RESULT_OK) {
                 //val resultBitmap: Bitmap? = getBitmapFromCurrentPath()
-                handleBitmap(openCropProvider, mCurrentPhotoPath, Source.CAMERA)
+                handleBitmap(tag, openCropProvider, mCurrentPhotoPath, Source.CAMERA)
             }
         }
     }
 
 
-    private fun registerGalleryLauncher(activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?){
+    private fun registerGalleryLauncher(tag: String?, activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?){
         this.galleryLauncher = fragment.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
             if (result.resultCode == Activity.RESULT_OK) {
                 fixExif = false // force for gallery
                 mCurrentPhotoPath = getRealPath(activity, result.data?.data)
                 //val resultBitmap = getBitmapFromCurrentPath()
-                handleBitmap(openCropProvider, mCurrentPhotoPath, Source.GALLERY)
+                handleBitmap(tag, openCropProvider, mCurrentPhotoPath, Source.GALLERY)
             }
         }
     }
 
-    fun register(activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?,  bitmapCallback: (bitmap: Bitmap?, source:Source?) -> Unit) {
-        registerCameraLauncher(activity, fragment, openCropProvider)
-        registerGalleryLauncher(activity, fragment, openCropProvider)
+    fun register(eventChannel:String?, activity: Activity, fragment: Fragment, openCropProvider: ICropProvider?,  bitmapCallback: (bitmap: Bitmap?, source:Source?) -> Unit) {
+        registerCameraLauncher(tag, activity, fragment, openCropProvider)
+        registerGalleryLauncher(tag, activity, fragment, openCropProvider)
 
         if(debugLogEnabled){
             Log.d("ImageManager", "registered")
         }
 
-
         RxBus.listen(RxEvent.EventImageSelected::class.java).subscribe {
             if(fragment==null || fragment.isDetached || !fragment.isAdded){
                 return@subscribe
             }
-            bitmapCallback(it.bitmap, it.source)
+            if(eventChannel==it.eventChannel){
+                bitmapCallback(it.bitmap, it.source)
+            }
         }
-
     }
 
 
-    private fun handleBitmap(openCropProvider: ICropProvider?, path: String?, source: Source) {
+    private fun handleBitmap(eventChannel: String?, openCropProvider: ICropProvider?, path: String?, source: Source) {
         path?:return
 
         this.source = source
         if(isCrop){ // crop handles exis and target resize
-            var cropFragment = CropFragment.newInstance(path, getSettings(), source.ordinal)
+            var cropFragment = CropFragment.newInstance(eventChannel, path, getSettings(), source.ordinal)
             openCropProvider?.openCrop(cropFragment)
             if(openCropProvider==null){
                 Log.e(tag, "Crop Provider Not Found")
@@ -127,7 +127,7 @@ class ImageManager private constructor(builder: Builder){
         }else{
             var bitmap = BitmapUtils.applySettings(getSettings(), path)
             bitmap?:return
-            RxBus.publish(RxEvent.EventImageSelected(bitmap, source))
+            RxBus.publish(RxEvent.EventImageSelected(bitmap, source, eventChannel))
             //callback(bitmap)
         }
     }
